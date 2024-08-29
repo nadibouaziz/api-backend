@@ -1,0 +1,130 @@
+services:
+  authentication-db:
+    image: postgres
+    restart: always
+    environment:
+      - POSTGRES_DB=authentication
+      - POSTGRES_USER=docker
+      - POSTGRES_PASSWORD=docker
+    container_name: postgres
+    networks:
+      - backend-app
+
+  authorization-db:
+    image: postgres
+    restart: always
+    environment:
+      - POSTGRES_DB=authorization
+      - POSTGRES_USER=docker
+      - POSTGRES_PASSWORD=docker
+    container_name: postgres
+    networks:
+      - backend-app
+  
+  recipes-db:
+    image: postgres
+    restart: always
+    environment:
+      - POSTGRES_DB=recipes
+      - POSTGRES_USER=docker
+      - POSTGRES_PASSWORD=docker
+    container_name: postgres
+    networks:
+      - backend-app
+
+  workout-db:
+    image: postgres
+    restart: always
+    environment:
+      - POSTGRES_DB=workout
+      - POSTGRES_USER=docker
+      - POSTGRES_PASSWORD=docker
+    container_name: postgres
+    networks:
+      - backend-app
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: ./docker/Dockerfile
+      target: development
+    container_name: api-gateway
+    # TODO : replace by .env later
+    environment: development
+      NODE_ENV: development
+      JWT_SECRET: my-secret
+    ports:
+      - '3001:3000'
+
+  authentication-svc:
+    build:
+      context: ./authentication
+      dockerfile: ./docker/Dockerfile
+      target: development
+    container_name: authentication-svc
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://docker:docker@authentication-db:5432/authentication
+      JWT_SECRET: 'my-secret'
+    ports:
+      - '3001:3000'
+    depends_on:
+      - db
+    volumes:
+      - ./authentication/src:/app/src
+    networks:
+      - backend-app
+
+  authorization-svc:
+    build:
+      context: ./authorization
+      dockerfile: ./docker/Dockerfile
+      target: development
+    container_name: authorization-svc
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://docker:docker@authorization:5432/authorization
+      JWT_SECRET: 'my-secret'
+    ports:
+      - '3001:3000'
+    depends_on:
+      - db
+    volumes:
+      - ./authorization/src:/app/src
+    networks:
+      - backend-app
+
+  kafka:
+    image: wurstmeister/kafka:latest
+    container_name: kafka
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # only for inside the docker (INSIDE)
+      KAFKA_ADVERTISED_LISTENERS: SSL://kafka:9093
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: SSL:SSL
+      
+      # SSL
+      KAFKA_SSL_KEYSTORE_LOCATION: /etc/kafka/secrets/kafka.keystore.jks
+      KAFKA_SSL_KEYSTORE_PASSWORD: your_keystore_password
+      KAFKA_SSL_KEY_PASSWORD: your_key_password
+      KAFKA_SSL_TRUSTSTORE_LOCATION: /etc/kafka/secrets/kafka.truststore.jks
+      KAFKA_SSL_TRUSTSTORE_PASSWORD: your_truststore_password
+    volumes:
+      - ./secrets:/etc/kafka/secrets
+    ports:
+      - "9093"
+    depends_on:
+      - zookeeper
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    ports:
+      - "2181"
+
+networks:
+  backend-app:
+    external: true
+    driver: bridge
