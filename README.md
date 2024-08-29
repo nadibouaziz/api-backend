@@ -14,4 +14,4 @@ Should implement Authorization on resource / service as well ( 2 layers of autho
 
 ## Docker compose
 
-FYI : do not use the certs in the `_docker/certs/` folder. They are here only for testing purpose. I wanted my local env to be as close as a production env.
+FYI : do not use the certs in the `_docker/certs/` folder. They are here only for testing purpose. I wanted my local env to work with SSL for Kafka + redis.
