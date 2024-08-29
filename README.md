@@ -8,7 +8,7 @@ Will implement SSO login ( FB, Insta ), the login process schema will evolve
 
 ## Workout Service / Recipes Service
 
-Should implement Authentication on resource / service as well ( 2 layers of authorization )
+Should implement Authorization on resource / service as well ( 2 layers of authorization )
 
 ![Ressource process](./_assets/resource-process.png)
 
