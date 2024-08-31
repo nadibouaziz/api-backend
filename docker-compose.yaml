@@ -56,10 +56,11 @@ services:
     ports:
       - '3001:3000'
     depends_on:
-      # - redis
+      - redis
       - kafka
     volumes:
       - ./_docker/kafka/secrets:/etc/kafka/secrets
+      - ./_docker/redis/certs:/etc/redis/certs
       - ./api-gateway/src:/app/src
     networks:
       - backend-app
@@ -73,11 +74,9 @@ services:
     environment:
       NODE_ENV: development
       DATABASE_URL: postgresql://authentication:authentication@authentication-db:5432/authentication
-      JWT_SECRET: 'my-secret'
+      JWT_SECRET: my-secret
       KAFKA_BROKER: kafka:9093
       REDIS_URL: redis:6379
-    ports:
-      - '3000'
     depends_on:
       - authentication-db
       - kafka
@@ -113,8 +112,6 @@ services:
     container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
-    ports:
-      - "2181"
     networks:
       - backend-app
 
@@ -142,6 +139,24 @@ services:
       - "9093"
     depends_on:
       - zookeeper
+    networks:
+      - backend-app
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    command: >
+      sh -c "chown -R redis:redis /usr/local/etc/redis/* &&
+      exec redis-server
+      --tls-port 6379
+      --port 0
+      --tls-cert-file /usr/local/etc/redis/redis-server.crt
+      --tls-key-file /usr/local/etc/redis/redis-server.key
+      --tls-ca-cert-file /usr/local/etc/redis/ca.crt
+      --tls-auth-clients no
+      --tls-replication yes"
+    volumes:
+      - ./_docker/redis/certs:/usr/local/etc/redis
     networks:
       - backend-app
 
