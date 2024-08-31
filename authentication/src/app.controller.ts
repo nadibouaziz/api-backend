@@ -1,12 +1,24 @@
 import { Controller, Get } from '@nestjs/common';
-import { AppService } from './app.service';
+import { ProducerService } from './kafka/producer.service';
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(private readonly producerService: ProducerService) {}
 
-  @Get()
-  getHello(): string {
-    return this.appService.getHello();
+  @Get('/login')
+  async getHello(): Promise<string> {
+    await this.producerService
+      .produce({
+        topic: 'my-topic',
+        messages: [
+          { key: 'userId', value: '1234' },
+          { key: 'sessionId', value: '6548' },
+        ],
+      })
+      .catch((e) => {
+        console.log(e);
+      });
+
+    return 'Hello wrold';
   }
 }

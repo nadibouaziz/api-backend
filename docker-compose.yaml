@@ -1,76 +1,88 @@
 services:
   authentication-db:
-    image: postgres
+    image: postgres:latest
     restart: always
     environment:
       - POSTGRES_DB=authentication
-      - POSTGRES_USER=docker
-      - POSTGRES_PASSWORD=docker
-    container_name: postgres
+      - POSTGRES_USER=authentication
+      - POSTGRES_PASSWORD=authentication
+    container_name: authentication-db
     networks:
       - backend-app
 
   authorization-db:
-    image: postgres
+    image: postgres:latest
     restart: always
     environment:
       - POSTGRES_DB=authorization
-      - POSTGRES_USER=docker
-      - POSTGRES_PASSWORD=docker
-    container_name: postgres
+      - POSTGRES_USER=authorization
+      - POSTGRES_PASSWORD=authorization
+    container_name: authorization-db
     networks:
       - backend-app
   
   recipes-db:
-    image: postgres
+    image: postgres:latest
     restart: always
     environment:
       - POSTGRES_DB=recipes
-      - POSTGRES_USER=docker
-      - POSTGRES_PASSWORD=docker
-    container_name: postgres
+      - POSTGRES_USER=recipes
+      - POSTGRES_PASSWORD=recipes
+    container_name: recipes-db
     networks:
       - backend-app
 
   workout-db:
-    image: postgres
+    image: postgres:latest
     restart: always
     environment:
       - POSTGRES_DB=workout
-      - POSTGRES_USER=docker
-      - POSTGRES_PASSWORD=docker
-    container_name: postgres
+      - POSTGRES_USER=workout
+      - POSTGRES_PASSWORD=workout
+    container_name: workout-db
     networks:
       - backend-app
 
   api-gateway:
     build:
       context: ./api-gateway
-      dockerfile: ./docker/Dockerfile
+      dockerfile: ./Dockerfile
       target: development
     container_name: api-gateway
-    # TODO : replace by .env later
-    environment: development
+    environment:
       NODE_ENV: development
       JWT_SECRET: my-secret
+      REDIS_URL: redis:6379
     ports:
       - '3001:3000'
+    depends_on:
+      # - redis
+      - kafka
+    volumes:
+      - ./_docker/kafka/secrets:/etc/kafka/secrets
+      - ./api-gateway/src:/app/src
+    networks:
+      - backend-app
 
   authentication-svc:
     build:
       context: ./authentication
-      dockerfile: ./docker/Dockerfile
+      dockerfile: ./Dockerfile
       target: development
     container_name: authentication-svc
     environment:
       NODE_ENV: development
-      DATABASE_URL: postgresql://docker:docker@authentication-db:5432/authentication
+      DATABASE_URL: postgresql://authentication:authentication@authentication-db:5432/authentication
       JWT_SECRET: 'my-secret'
+      KAFKA_BROKER: kafka:9093
+      REDIS_URL: redis:6379
     ports:
-      - '3001:3000'
+      - '3000'
     depends_on:
-      - db
+      - authentication-db
+      - kafka
     volumes:
+      - ./_docker/kafka/secrets:/etc/kafka/secrets
       - ./authentication/src:/app/src
     networks:
       - backend-app
@@ -78,51 +90,60 @@ services:
   authorization-svc:
     build:
       context: ./authorization
-      dockerfile: ./docker/Dockerfile
+      dockerfile: ./Dockerfile
       target: development
     container_name: authorization-svc
     environment:
       NODE_ENV: development
-      DATABASE_URL: postgresql://docker:docker@authorization:5432/authorization
+      DATABASE_URL: postgresql://authorization:authorization@authorization-db:5432/authorization
       JWT_SECRET: 'my-secret'
     ports:
-      - '3001:3000'
+      - '3000'
     depends_on:
-      - db
+      - authorization-db
+      - kafka
     volumes:
+      - ./_docker/kafka/secrets:/etc/kafka/secrets
       - ./authorization/src:/app/src
     networks:
       - backend-app
 
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    ports:
+      - "2181"
+    networks:
+      - backend-app
+
   kafka:
-    image: wurstmeister/kafka:latest
+    image: confluentinc/cp-kafka:latest
     container_name: kafka
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      # only for inside the docker (INSIDE)
+      # Internal listener for clients within the Docker network
       KAFKA_ADVERTISED_LISTENERS: SSL://kafka:9093
-      KAFKA_LISTENERS: INTERNAL://0.0.0.0
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: SSL:SSL
-      
-      # SSL
-      KAFKA_SSL_KEYSTORE_LOCATION: /etc/kafka/secrets/kafka.keystore.jks
-      KAFKA_SSL_KEYSTORE_PASSWORD: your_keystore_password
-      KAFKA_SSL_KEY_PASSWORD: your_key_password
-      KAFKA_SSL_TRUSTSTORE_LOCATION: /etc/kafka/secrets/kafka.truststore.jks
-      KAFKA_SSL_TRUSTSTORE_PASSWORD: your_truststore_password
+      KAFKA_LISTENERS: SSL://0.0.0.0:9093
+      # SSL configuration
+      KAFKA_SSL_KEYSTORE_FILENAME: kafka.keystore.jks
+      KAFKA_SSL_KEYSTORE_CREDENTIALS: kafka.secret.txt
+      KAFKA_SSL_KEY_CREDENTIALS: kafka.secret.txt
+      KAFKA_SSL_TRUSTSTORE_FILENAME: kafka.truststore.jks
+      KAFKA_SSL_TRUSTSTORE_CREDENTIALS: kafka.secret.txt
+      KAFKA_SSL_CLIENT_AUTH: required
+      KAFKA_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: " "
+      KAFKA_SECURITY_INTER_BROKER_PROTOCOL: SSL
     volumes:
-      - ./secrets:/etc/kafka/secrets
+      - ./_docker/kafka/secrets:/etc/kafka/secrets
     ports:
       - "9093"
     depends_on:
       - zookeeper
-
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.5.0
-    container_name: zookeeper
-    ports:
-      - "2181"
+    networks:
+      - backend-app
 
 networks:
   backend-app:
