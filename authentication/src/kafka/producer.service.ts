@@ -6,13 +6,11 @@ export class ProducerService implements OnModuleInit, OnApplicationShutdown {
   private readonly kafka = new Kafka({
     clientId: 'my-app',
     brokers: [process.env.KAFKA_BROKER!],
-    authenticationTimeout: 2000,
-    reauthenticationThreshold: 2000,
     ssl: {
       rejectUnauthorized: false,
-      ca: [fs.readFileSync('/etc/kafka/secrets/ca.pem', 'utf-8')],
+      ca: [fs.readFileSync('/etc/kafka/secrets/ca-cert.pem', 'utf-8')],
       key: fs.readFileSync('/etc/kafka/secrets/client-key.pem', 'utf-8'),
-      cert: fs.readFileSync('/etc/kafka/secrets/client-cert.pem', 'utf-8'),
+      cert: fs.readFileSync('/etc/kafka/secrets/cert-signed.pem', 'utf-8'),
       passphrase: 'password',
     },
   });
