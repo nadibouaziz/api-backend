@@ -3,6 +3,10 @@
 **/node_modules
 **/build
 
+# Certs
+**/certs
+**/secrets
+
 # Logs
 **/logs
 **/*.log
