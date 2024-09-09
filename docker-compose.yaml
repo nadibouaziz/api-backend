@@ -76,10 +76,17 @@ services:
       DATABASE_URL: postgresql://authentication:authentication@authentication-db:5432/authentication
       JWT_SECRET: my-secret
       KAFKA_BROKER: kafka:9093
+      KAFKA_CLIENT_ID: authentication-svc
+      KAFKA_PATH_CA_CERT_FILE: /etc/kafka/secrets/ca-cert.pem
+      KAFKA_PATH_CA_KEY_FILE: /etc/kafka/secrets/ca-key.pem
+      KAFKA_PATH_SIGNED_CERT: /etc/kafka/secrets/cert-signed.pem
+      KAFKA_SSL_PASSWORD: password
       REDIS_URL: redis:6379
     depends_on:
       - authentication-db
       - kafka
+    ports:
+      - '3000'
     volumes:
       - ./_docker/kafka/secrets:/etc/kafka/secrets
       - ./authentication/src:/app/src
@@ -96,8 +103,6 @@ services:
       NODE_ENV: development
       DATABASE_URL: postgresql://authorization:authorization@authorization-db:5432/authorization
       JWT_SECRET: 'my-secret'
-    ports:
-      - '3000'
     depends_on:
       - authorization-db
       - kafka

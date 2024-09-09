@@ -1,34 +1,44 @@
 import { HttpService } from '@nestjs/axios';
-import { Controller, Get, Req } from '@nestjs/common';
-import { map } from 'rxjs';
+import { All, Controller, Req, Res } from '@nestjs/common';
+import { map, catchError, of } from 'rxjs';
+import { Response } from 'express';
 
 @Controller('/api')
 export class AppController {
   constructor(private httpService: HttpService) {}
 
-  @Get('*')
-  proxyRequest(@Req() req: Request) {
+  @All('*')
+  proxyRequest(@Req() req: Request, @Res() res: Response) {
     const { url, method } = req;
     const serviceUrl = this.getServiceUrl(url);
 
-    // TODO : improve : just testing kafka ssl connection
     return this.httpService
       .request({
         url: serviceUrl,
         method: method,
         data: req.body,
       })
-      .pipe(map((response) => response.data));
+      .pipe(
+        map((response) => {
+          return res.status(response.status).send(response.data);
+        }),
+        catchError((error) => {
+          const status = error.response?.status || 500;
+          const message =
+            error.response?.data?.message || 'Internal server error';
+          return of(res.status(status).send({ statusCode: status, message }));
+        }),
+      )
+      .subscribe();
   }
 
   private getServiceUrl(url: string): string {
     const path = url.replace(/^\/api/, '');
     const serviceMapping: Record<string, string> = {
       '/authorization': 'http://authorization-svc:3000',
-      '/authentication': 'http://authentication-svc:3000',
+      '/auth': 'http://authentication-svc:3000',
     };
 
-    // Find the base path by checking the mapping
     const basePath = Object.keys(serviceMapping).find((route) =>
       path.startsWith(route),
     );
